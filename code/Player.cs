@@ -4,6 +4,8 @@ namespace SIXDOF
 {
 	partial class SIXDOFPlayer : Player
 	{
+		[Net] public Rotation PhysRotation { get; private set; }
+
 		public override void Spawn()
 		{
 			base.Spawn();
@@ -23,10 +25,10 @@ namespace SIXDOF
 			SetupPhysicsFromModel( PhysicsMotionType.Dynamic );
 
 			Controller = new SIXDOFController();
-			
+
 			Animator = new TPoseAnimator();
 
-			Camera = new SIXDOFOutsideCamera();
+			Camera = new SIXDOFInsideCamera();
 
 			EnableAllCollisions = true;
 			EnableDrawing = true;
@@ -52,17 +54,43 @@ namespace SIXDOF
 
 			SimulateActiveChild( cl, ActiveChild );
 
+			if ( Input.Pressed( InputButton.View ) )
+			{
+				using ( Prediction.Off() )
+				{
+					if ( Camera is not SIXDOFInsideCamera )
+					{
+						Camera = new SIXDOFInsideCamera();
+					}
+					else
+					{
+						Camera = new SIXDOFOutsideCamera();
+						//Log.Info( "Fuck off, no 3rd person camera for you" );
+					}
+				}
+			}
+
+			if (IsServer)
+			{
+				PhysRotation = PhysicsBody.Rotation;
+				DebugOverlay.ScreenText( $"{PhysRotation}\n{PhysicsBody.AngularVelocity}" );
+			}
+
 			if ( IsServer && Input.Pressed( InputButton.Attack1 ) )
 			{
 				var ragdoll = new ModelEntity();
+				//ragdoll.SetModel( "models/pew.vmdl" );
 				ragdoll.SetModel( "models/citizen/citizen.vmdl" );
-				ragdoll.Position = EyePos + EyeRot.Forward * 40;
+				ragdoll.GlowActive = true;
+				ragdoll.GlowColor = Color.Red;
+				ragdoll.GlowState = GlowStates.GlowStateOn;
+				ragdoll.Position = EyePos + PhysicsBody.Rotation.Forward * 40;
 				ragdoll.Rotation = Rotation.LookAt( Vector3.Random.Normal );
 				ragdoll.SetupPhysicsFromModel( PhysicsMotionType.Dynamic, false );
-				ragdoll.PhysicsGroup.Velocity = EyeRot.Forward * 1000;
+				ragdoll.PhysicsGroup.Velocity = PhysicsBody.Rotation.Forward * 1000;
 			}
 
-			DebugOverlay.Line( Position, Position + Velocity );
+			DebugOverlay.Line( PhysicsBody.Position, PhysicsBody.Position + PhysicsBody.Velocity );
 		}
 
 		public override void OnKilled()

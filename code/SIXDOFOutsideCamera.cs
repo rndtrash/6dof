@@ -36,7 +36,7 @@ namespace SIXDOF
 			Viewer = null;
 		}
 
-		public override void BuildInput( InputBuilder input )
+		/*public override void BuildInput( InputBuilder input )
 		{
 			base.BuildInput( input );
 
@@ -59,7 +59,7 @@ namespace SIXDOF
 			//input.ViewAngles = Angles.Zero;
 
 			input.StopProcessing = true;
-		}
+		}*/
 	}
 
 }

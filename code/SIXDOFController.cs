@@ -4,44 +4,28 @@ namespace SIXDOF
 {
 	public class SIXDOFController : BasePlayerController
 	{
-		public bool HasInput { get; private set; }  = false;
+		public bool HasInput { get; private set; } = false;
 
 		public SIXDOFController()
 		{
 		}
 
-		public override void FrameSimulate()
-		{
-			base.FrameSimulate();
-
-			EyeRot = Input.Rotation;
-		}
-
 		public override void Simulate()
 		{
-			var vel = (Input.Rotation.Forward * Input.Forward) + (Input.Rotation.Left * Input.Left) + (Input.Rotation.Up * /*Input.Up*/ (Input.Down( InputButton.Jump ) ? 1 : Input.Down( InputButton.Duck ) ? -1 : 0));
-			HasInput = !vel.IsNearZeroLength;
+			var p = Pawn as SIXDOFPlayer;
+			var angular = (p.PhysRotation.Forward * (Input.Down( InputButton.Menu ) ? -1 : Input.Down( InputButton.Use ) ? 1 : 0) + p.PhysRotation.Left * Input.MouseDelta.x + p.PhysRotation.Up * Input.MouseDelta.y) * 1000 * (Input.Down( InputButton.Run ) ? 5 : 1);
 
-			/*if ( Input.Down( InputButton.Jump ) )
-			{
-				vel += Vector3.Up * 1;
-			}*/
+			p.PhysicsBody.ApplyAngularImpulse( angular );
+
+			var vel = (p.PhysRotation.Forward * Input.Forward) + (p.PhysRotation.Left * Input.Left) + (p.PhysRotation.Up * (Input.Down( InputButton.Jump ) ? 1 : Input.Down( InputButton.Duck ) ? -1 : 0));
+			HasInput = !vel.IsNearZeroLength;
 
 			vel = vel.Normal * 2000;
 
 			if ( Input.Down( InputButton.Run ) )
 				vel *= 5.0f;
 
-			Velocity += vel * Time.Delta;
-
-			//Velocity = Velocity.Approach( 0, Velocity.Length * Time.Delta * 5.0f );
-
-
-
-			EyeRot = Input.Rotation;
-			WishVelocity = Velocity;
-			GroundEntity = null;
-			BaseVelocity = Vector3.Zero;
+			p.PhysicsBody.ApplyForce(vel * 10);
 		}
 	}
 }
