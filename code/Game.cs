@@ -24,10 +24,14 @@ namespace SIXDOF
 		{
 			base.ClientJoined( client );
 
-			var player = new SIXDOFPlayer();
+			var player = new SIXDOFPlayer( client );
 			client.Pawn = player;
 
 			player.Respawn();
+
+			var vehicle = new Vehicle();
+			vehicle.Position += Vector3.Up * 200;
+			vehicle.MountPilot( player );
 		}
 	}
 

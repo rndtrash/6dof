@@ -13,7 +13,7 @@ namespace SIXDOF
 		public override void Simulate()
 		{
 			var p = Pawn as SIXDOFPlayer;
-			var angular = (p.PhysRotation.Forward * (Input.Down( InputButton.Menu ) ? -1 : Input.Down( InputButton.Use ) ? 1 : 0) + p.PhysRotation.Left * Input.MouseDelta.x + p.PhysRotation.Up * Input.MouseDelta.y) * 1000 * (Input.Down( InputButton.Run ) ? 5 : 1);
+			/*var angular = (p.PhysRotation.Forward * (Input.Down( InputButton.Menu ) ? -1 : Input.Down( InputButton.Use ) ? 1 : 0) + p.PhysRotation.Left * Input.MouseDelta.x + p.PhysRotation.Up * Input.MouseDelta.y) * 1000 * (Input.Down( InputButton.Run ) ? 5 : 1);
 
 			p.PhysicsBody.ApplyAngularImpulse( angular );
 
@@ -25,7 +25,7 @@ namespace SIXDOF
 			if ( Input.Down( InputButton.Run ) )
 				vel *= 5.0f;
 
-			p.PhysicsBody.ApplyForce(vel * 10);
+			p.PhysicsBody.ApplyForce(vel * 100);*/
 		}
 	}
 }

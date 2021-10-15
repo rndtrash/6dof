@@ -2,102 +2,170 @@
 
 namespace SIXDOF
 {
-	partial class SIXDOFPlayer : Player
+	public partial class SIXDOFPlayer : Player
 	{
-		[Net] public Rotation PhysRotation { get; private set; }
+		[Net] public PawnController VehicleController { get; set; }
+		[Net] public PawnAnimator VehicleAnimator { get; set; }
+		[Net, Predicted] public ICamera VehicleCamera { get; set; }
+		[Net, Predicted] public Entity Vehicle { get; set; }
+		[Net, Predicted] public ICamera MainCamera { get; set; }
+
+		public ICamera LastCamera { get; set; }
+
+
+		/// <summary>
+		/// The clothing container is what dresses the citizen
+		/// </summary>
+		public Clothing.Container Clothing = new();
+
+		/// <summary>
+		/// Default init
+		/// </summary>
+		public SIXDOFPlayer()
+		{
+		}
+
+		/// <summary>
+		/// Initialize using this client
+		/// </summary>
+		public SIXDOFPlayer( Client cl ) : this()
+		{
+			// Load clothing from client data
+			Clothing.LoadFromClient( cl );
+		}
 
 		public override void Spawn()
 		{
-			base.Spawn();
+			MainCamera = new FirstPersonCamera();
+			LastCamera = MainCamera;
 
-			MoveType = MoveType.Physics;
-			CollisionGroup = CollisionGroup.Interactive;
-			PhysicsEnabled = true;
-			UsePhysicsCollision = true;
+			base.Spawn();
 		}
 
 		public override void Respawn()
 		{
-			Host.AssertServer();
-
 			SetModel( "models/citizen/citizen.vmdl" );
 
-			SetupPhysicsFromModel( PhysicsMotionType.Dynamic );
+			Controller = new WalkController();
+			Animator = new StandardPlayerAnimator();
 
-			Controller = new SIXDOFController();
+			MainCamera = LastCamera;
+			Camera = MainCamera;
 
-			Animator = new TPoseAnimator();
-
-			Camera = new SIXDOFInsideCamera();
+			if ( DevController is NoclipController )
+			{
+				DevController = null;
+			}
 
 			EnableAllCollisions = true;
 			EnableDrawing = true;
 			EnableHideInFirstPerson = true;
 			EnableShadowInFirstPerson = true;
 
-			LifeState = LifeState.Alive;
-			Health = 100;
-			Velocity = Vector3.Zero;
-			WaterLevel.Clear();
+			Clothing.DressEntity( this );
 
-			Game.Current?.MoveToSpawnpoint( this );
-			ResetInterpolation();
-
-			PhysicsBody.DragEnabled = false;
-			PhysicsBody.LinearDrag = 0;
-			PhysicsBody.AngularDrag = 0;
-		}
-
-		public override void Simulate( Client cl )
-		{
-			base.Simulate( cl );
-
-			SimulateActiveChild( cl, ActiveChild );
-
-			if ( Input.Pressed( InputButton.View ) )
-			{
-				using ( Prediction.Off() )
-				{
-					if ( Camera is not SIXDOFInsideCamera )
-					{
-						Camera = new SIXDOFInsideCamera();
-					}
-					else
-					{
-						Camera = new SIXDOFOutsideCamera();
-						//Log.Info( "Fuck off, no 3rd person camera for you" );
-					}
-				}
-			}
-
-			if (IsServer)
-			{
-				PhysRotation = PhysicsBody.Rotation;
-				DebugOverlay.ScreenText( $"{PhysRotation}\n{PhysicsBody.AngularVelocity}" );
-			}
-
-			if ( IsServer && Input.Pressed( InputButton.Attack1 ) )
-			{
-				var ragdoll = new ModelEntity();
-				//ragdoll.SetModel( "models/pew.vmdl" );
-				ragdoll.SetModel( "models/citizen/citizen.vmdl" );
-				ragdoll.GlowActive = true;
-				ragdoll.GlowColor = Color.Red;
-				ragdoll.GlowState = GlowStates.GlowStateOn;
-				ragdoll.Position = EyePos + PhysicsBody.Rotation.Forward * 40;
-				ragdoll.Rotation = Rotation.LookAt( Vector3.Random.Normal );
-				ragdoll.SetupPhysicsFromModel( PhysicsMotionType.Dynamic, false );
-				ragdoll.PhysicsGroup.Velocity = PhysicsBody.Rotation.Forward * 1000;
-			}
-
-			DebugOverlay.Line( PhysicsBody.Position, PhysicsBody.Position + PhysicsBody.Velocity );
+			base.Respawn();
 		}
 
 		public override void OnKilled()
 		{
 			base.OnKilled();
 
+			Particles.Create( "particles/impact.flesh.bloodpuff-big.vpcf", Position );
+			Particles.Create( "particles/impact.flesh-big.vpcf", Position );
+			PlaySound( "kersplat" );
+
+			VehicleController = null;
+			VehicleAnimator = null;
+			VehicleCamera = null;
+			Vehicle = null;
+
+			LastCamera = MainCamera;
+			MainCamera = new SpectateRagdollCamera();
+			Camera = MainCamera;
+			Controller = null;
+
+			EnableAllCollisions = false;
 			EnableDrawing = false;
 		}
+
+		public override void TakeDamage( DamageInfo info )
+		{
+			Health = 0;
+
+			base.TakeDamage( info );
+		}
+
+		public override PawnController GetActiveController()
+		{
+			if ( VehicleController != null ) return VehicleController;
+			if ( DevController != null ) return DevController;
+
+			return base.GetActiveController();
+		}
+
+		public override PawnAnimator GetActiveAnimator()
+		{
+			if ( VehicleAnimator != null ) return VehicleAnimator;
+
+			return base.GetActiveAnimator();
+		}
+
+		public ICamera GetActiveCamera()
+		{
+			if ( VehicleCamera != null ) return VehicleCamera;
+
+			return MainCamera;
+		}
+
+		public override void Simulate( Client cl )
+		{
+			base.Simulate( cl );
+
+			if ( Input.ActiveChild != null )
+			{
+				ActiveChild = Input.ActiveChild;
+			}
+
+			if ( LifeState != LifeState.Alive )
+				return;
+
+			if ( VehicleController != null && DevController is NoclipController )
+			{
+				DevController = null;
+			}
+
+			var controller = GetActiveController();
+			if ( controller != null )
+				EnableSolidCollisions = !controller.HasTag( "noclip" );
+
+			TickPlayerUse();
+			SimulateActiveChild( cl, ActiveChild );
+
+			if ( Input.Pressed( InputButton.View ) )
+			{
+				if ( MainCamera is not FirstPersonCamera )
+				{
+					MainCamera = new FirstPersonCamera();
+				}
+				else
+				{
+					MainCamera = new ThirdPersonCamera();
+				}
+			}
+
+			Camera = GetActiveCamera();
+		}
+
+		public void Catapult()
+		{
+			//
+		}
+
+		/*[ClientRpc]
+		public void SetOpacity(float opacity)
+		{
+			SceneObject.SetValue( "transparency", opacity );
+		}*/
 	}
 }

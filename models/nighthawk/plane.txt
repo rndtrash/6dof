@@ -1,0 +1,11 @@
+"settings"
+{
+	"clampu"		"1"
+	"clampv"		"1"
+	"clampw"		"1"
+	"nocompress"		"1"
+	"nolod"		"1"
+	"maxres"		"2"
+	"maxresmobile"		"2"
+	"nomip"		"1"
+}
